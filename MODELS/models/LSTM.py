@@ -81,5 +81,13 @@ class Model(nn.Module):
 
         # Final projection and activation
         output = self.projection(dec_out[:, -self.pred_len:, :])  # [B, pred_len, 1]
-        output = self.activation(output)
+        output = self.projection(dec_out[:, -self.pred_len:, :])  # [B, pred_len, 2]
+
+        # Phân tách lower và delta (positive offset)
+        lower = output[..., 0:1]
+        delta = torch.relu(output[..., 1:2])  # đảm bảo delta >= 0
+
+        upper = lower + delta  # đảm bảo upper > lower
+        output = torch.cat([lower, upper], dim=-1)  # [B, pred_len, 2]
+
         return output

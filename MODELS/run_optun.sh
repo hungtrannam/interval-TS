@@ -5,11 +5,11 @@ set -e
 
 #  DLinear Informer LSTM Nonstationary_Tranformer PatchTST Reformer Tranformer Crossformer
 MODELS=(
-'LSTM'
+'PatchTST'
 
 )
 DATASET_NAME="VNM2"
-TARGET='High,Low'
+TARGET='Low,High'
 
 ROOT_PATH="$(dirname "$(dirname "$(realpath "$0")")")/dataset"
 EMBED='timeF'

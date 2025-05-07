@@ -182,7 +182,7 @@ if __name__ == '__main__':
     #     sampler=module.AutoSampler()
     #     pruner=optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=2)
     # )
-    study.optimize(objective, n_trials=3)
+    study.optimize(objective, n_trials=30)
 
     print("Best Trial Result:")
     print(study.best_trial)

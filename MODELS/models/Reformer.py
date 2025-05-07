@@ -49,18 +49,6 @@ class Model(nn.Module):
             self.projection = nn.Linear(
                 configs.d_model, configs.c_out, bias=True)
 
-    def long_forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-        # add placeholder
-        x_enc = torch.cat([x_enc, x_dec[:, -self.pred_len:, :]], dim=1)
-        if x_mark_enc is not None:
-            x_mark_enc = torch.cat(
-                [x_mark_enc, x_mark_dec[:, -self.pred_len:, :]], dim=1)
-
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
-        enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        dec_out = self.projection(enc_out)
-
-        return dec_out  # [B, L, D]
     
     def short_forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Normalization
@@ -77,60 +65,19 @@ class Model(nn.Module):
 
         enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        dec_out = self.projection(enc_out)
-
-        # dec_out = dec_out * std_enc + mean_enc
-        # dec_out = dec_out * std_enc[:, :, -2:] + mean_enc[:, :, -2:]
-        dec_out = dec_out * std_enc[:, :, -self.output_attention_dim:] + mean_enc[:, :, -self.output_attention_dim:]
+        dec_out = self.projection(enc_out)  # [B, L, 2*D]
+        dec_out = dec_out * std_enc[:, :, -2:] + mean_enc[:, :, -2:]
         
-        return dec_out  # [B, L, D]
-
-    def imputation(self, x_enc, x_mark_enc):
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # [B,T,C]
-
-        enc_out, attns = self.encoder(enc_out)
-        enc_out = self.projection(enc_out)
-
-        return enc_out  # [B, L, D]
-
-    def anomaly_detection(self, x_enc):
-        enc_out = self.enc_embedding(x_enc, None)  # [B,T,C]
-
-        enc_out, attns = self.encoder(enc_out)
-        enc_out = self.projection(enc_out)
-
-        return enc_out  # [B, L, D]
-
-    def classification(self, x_enc, x_mark_enc):
-        # enc
-        enc_out = self.enc_embedding(x_enc, None)
-        enc_out, attns = self.encoder(enc_out)
-
-        # Output
-        # the output transformer encoder/decoder embeddings don't include non-linearity
-        output = self.act(enc_out)
-        output = self.dropout(output)
-        # zero-out padding embeddings
-        output = output * x_mark_enc.unsqueeze(-1)
-        # (batch_size, seq_length * d_model)
-        output = output.reshape(output.shape[0], -1)
-        output = self.projection(output)  # (batch_size, num_classes)
-        return output
+        B, T, D2 = dec_out.shape
+        D = D2 // 2
+        dec_out = dec_out.view(B, T, D, 2)  # [B, T, D, 2]
+        lower = dec_out[..., 0]
+        upper = dec_out[..., 1]
+        return lower, upper
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
-        if self.task_name == 'long_term_forecast':
-            dec_out = self.long_forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
         if self.task_name == 'short_term_forecast':
-            dec_out = self.short_forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-            return dec_out[:, -self.pred_len:, :]  # [B, L, D]
-        if self.task_name == 'imputation':
-            dec_out = self.imputation(x_enc, x_mark_enc)
-            return dec_out  # [B, L, D]
-        if self.task_name == 'anomaly_detection':
-            dec_out = self.anomaly_detection(x_enc)
-            return dec_out  # [B, L, D]
-        if self.task_name == 'classification':
-            dec_out = self.classification(x_enc, x_mark_enc)
-            return dec_out  # [B, N]
+            lower, upper = self.short_forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+            return lower[:, -self.pred_len:, :], upper[:, -self.pred_len:, :]
+
         return None

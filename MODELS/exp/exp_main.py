@@ -86,11 +86,11 @@ class Exp_Main(Exp_Basic):
                 loss_upper = criterion(pred[:, :, 1], true[:, :, 1])
                 loss = loss_lower + loss_upper
                 loss_pred = criterion(outputs, batch_y)
-                # loss_physics = torch.relu(pred[:, :, 1] - pred[:, :, 0]).mean()
-                # loss_physics = torch.mean(torch.nn.functional.softplus(pred[:, :, 0] - pred[:, :, 1])**2)
+                loss_physics = torch.relu(pred[:, :, 1] - pred[:, :, 0]).mean()
+                # loss_physics = torch.mean(torch.nn.functional.softplus(pred[:, :, 1] - pred[:, :, 0])**2)
 
                 # Tổng loss
-                loss = loss_pred
+                loss = loss_pred + loss_physics
 
 
                 total_loss.append(loss)
@@ -164,11 +164,11 @@ class Exp_Main(Exp_Basic):
                         loss_upper = criterion(pred[:, :, 1], true[:, :, 1])
                         loss = loss_lower + loss_upper
                         loss_pred = criterion(outputs, batch_y)
-                        # loss_physics = torch.relu(pred[:, :, 1] - pred[:, :, 0]).mean()
+                        loss_physics = torch.relu(pred[:, :, 0] - pred[:, :, 1]).mean()
                         # loss_physics = torch.mean(torch.nn.functional.softplus(pred[:, :, 0] - pred[:, :, 1])**2)
 
                         # Tổng loss
-                        loss = loss_pred
+                        loss = loss_pred + loss_physics
 
                 else:
                     outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
